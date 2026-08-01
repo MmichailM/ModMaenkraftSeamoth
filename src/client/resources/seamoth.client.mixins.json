@@ -6,7 +6,6 @@
 		"ExampleClientMixin",
 		"PlayerRendererMixin",
 		"LivingEntityRenderStateMixin",
-		"CameraMixin",
 		"LocalPlayerMixin"
 	],
 	"injectors": {

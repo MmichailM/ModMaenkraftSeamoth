@@ -33,6 +33,14 @@ public class SeamothEntity extends Entity {
     public void tick() {
         super.tick();
 
+        if (!this.level().isClientSide()) {
+            for (Entity passenger : this.getPassengers()) {
+                if (passenger instanceof LivingEntity livingPassenger) {
+                    livingPassenger.setAirSupply(livingPassenger.getMaxAirSupply());
+                }
+            }
+        }
+
         boolean inWater = this.isInWater();
         LivingEntity pilot = this.getFirstPassenger() instanceof  LivingEntity ? (LivingEntity) this.getFirstPassenger() : null;
 
