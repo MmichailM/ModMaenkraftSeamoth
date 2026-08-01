@@ -1,5 +1,6 @@
 package com.seamoth.entity;
 
+import com.mojang.math.Axis;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
@@ -13,6 +14,8 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 public class SeamothEntity extends Entity {
 
@@ -28,6 +31,47 @@ public class SeamothEntity extends Entity {
     }
 
     private boolean wasInWater;
+
+    @Override
+    protected void positionRider(Entity passenger, MoveFunction moveFunction) {
+        if (this.hasPassenger(passenger)) {
+            double offsetX = 0.0D, offsetY = -0.4D, offsetZ = 0.1D;
+
+            Vec3 worldOffset = this.rotateOffsetLikeModel(offsetX, offsetY, offsetZ);
+
+            moveFunction.accept(
+                    passenger,
+                    this.getX() + worldOffset.x,
+                    this.getY() + worldOffset.y,
+                    this.getZ() + worldOffset.z
+            );
+        }
+    }
+
+    /**
+     * Поворачивает локальное смещение места пилота (относительно корпуса)
+     * ровно так же, как SeamothEntityRenderer поворачивает саму 3D-модель:
+     * сначала тангаж (наклон носа) вокруг локальной оси X, затем курс вокруг мировой оси Y.
+     * <p>
+     * Раньше здесь учитывался только курс (yaw), из-за чего при наклоне носа вниз/вверх
+     * модель (стекло, корпус) визуально наклонялась, а фактическая точка игрока —
+     * и, соответственно, камера — оставалась на месте. В итоге при наклоне вниз игрок
+     * "утыкался" взглядом в стену корпуса, а при наклоне назад оказывался снаружи
+     * наклонившегося стекла.
+     * <p>
+     * Используя тот же порядок поворотов и те же углы (getXRot()/getYRot()), что и
+     * рендерер, мы гарантируем, что место игрока всегда останется там же, где визуально
+     * находится кабина, при любом наклоне.
+     */
+    private Vec3 rotateOffsetLikeModel(double offsetX, double offsetY, double offsetZ) {
+        Quaternionf rotation = Axis.YP.rotationDegrees(-this.getYRot())
+                .mul(Axis.XP.rotationDegrees(this.getXRot()));
+
+        Vector3f local = new Vector3f((float) offsetX, (float) offsetY, (float) offsetZ);
+        rotation.transform(local);
+
+        return new Vec3(local.x, local.y, local.z);
+    }
 
     @Override
     public void tick() {
