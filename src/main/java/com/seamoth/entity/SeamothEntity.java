@@ -32,36 +32,48 @@ public class SeamothEntity extends Entity {
 
     private boolean wasInWater;
 
+    // Смещение точки ГЛАЗ игрока относительно "нуля" Мотылька (в локальных, ещё не
+    // повёрнутых координатах корпуса). Двигайте эти три числа, чтобы подогнать
+    // положение камеры внутри кабины — теперь это можно делать не боясь наклонов,
+    // все три оси корректно поворачиваются вместе с моделью.
+    private static final double PILOT_EYE_OFFSET_X = 0.0D;
+    private static final double PILOT_EYE_OFFSET_Y = 1.22D; // высота глаз при ровном полёте
+    private static final double PILOT_EYE_OFFSET_Z = 0.1D;  // насколько глаза смещены вперёд
+
     @Override
     protected void positionRider(Entity passenger, MoveFunction moveFunction) {
         if (this.hasPassenger(passenger)) {
-            double offsetX = 0.0D, offsetY = -0.4D, offsetZ = 0.1D;
+            Vec3 rotatedEyeOffset = this.rotateOffsetLikeModel(
+                    PILOT_EYE_OFFSET_X, PILOT_EYE_OFFSET_Y, PILOT_EYE_OFFSET_Z
+            );
 
-            Vec3 worldOffset = this.rotateOffsetLikeModel(offsetX, offsetY, offsetZ);
+            // Ваниль сама прибавит passenger.getEyeHeight() к Y позиции пассажира,
+            // чтобы получить точку камеры (Entity/Camera всегда добавляют eyeHeight
+            // строго вверх в мировых координатах, никак не учитывая наклон сущности).
+            // Поэтому здесь мы заранее вычитаем eyeHeight из уже повёрнутого смещения:
+            // когда ваниль прибавит его обратно (уже НЕ повёрнутым), итоговая точка
+            // всё равно окажется ровно там, где нужно — как будто eyeHeight тоже
+            // повернулся вместе с корпусом.
+            double eyeHeight = passenger.getEyeHeight();
 
             moveFunction.accept(
                     passenger,
-                    this.getX() + worldOffset.x,
-                    this.getY() + worldOffset.y,
-                    this.getZ() + worldOffset.z
+                    this.getX() + rotatedEyeOffset.x,
+                    this.getY() + rotatedEyeOffset.y - eyeHeight,
+                    this.getZ() + rotatedEyeOffset.z
             );
         }
     }
 
     /**
-     * Поворачивает локальное смещение места пилота (относительно корпуса)
-     * ровно так же, как SeamothEntityRenderer поворачивает саму 3D-модель:
+     * Поворачивает локальное смещение (относительно корпуса) ровно так же,
+     * как SeamothEntityRenderer поворачивает саму 3D-модель:
      * сначала тангаж (наклон носа) вокруг локальной оси X, затем курс вокруг мировой оси Y.
      * <p>
-     * Раньше здесь учитывался только курс (yaw), из-за чего при наклоне носа вниз/вверх
-     * модель (стекло, корпус) визуально наклонялась, а фактическая точка игрока —
-     * и, соответственно, камера — оставалась на месте. В итоге при наклоне вниз игрок
-     * "утыкался" взглядом в стену корпуса, а при наклоне назад оказывался снаружи
-     * наклонившегося стекла.
-     * <p>
      * Используя тот же порядок поворотов и те же углы (getXRot()/getYRot()), что и
-     * рендерер, мы гарантируем, что место игрока всегда останется там же, где визуально
-     * находится кабина, при любом наклоне.
+     * рендерер, мы гарантируем, что заданная точка всегда остаётся там же, где визуально
+     * находится кабина, при любом наклоне — то есть камера буквально "приклеена"
+     * к корпусу Мотылька.
      */
     private Vec3 rotateOffsetLikeModel(double offsetX, double offsetY, double offsetZ) {
         Quaternionf rotation = Axis.YP.rotationDegrees(-this.getYRot())
