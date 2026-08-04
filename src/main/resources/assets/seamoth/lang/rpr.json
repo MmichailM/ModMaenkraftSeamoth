@@ -2,5 +2,9 @@
   "entity.seamoth.seamoth": "Мотылекъ",
   "key.category.seamoth.main": "Управленіе Мотылькомъ",
   "key.seamoth.up": "Восхожденіе",
-  "key.seamoth.down": "Погруженіе"
+  "key.seamoth.down": "Погруженіе",
+  "key.seamoth.forward": "Движеніе впередъ",
+  "key.seamoth.backward": "Движеніе назадъ",
+  "key.seamoth.left": "Движеніе влѣво",
+  "key.seamoth.right": "Движеніе вправо"
 }

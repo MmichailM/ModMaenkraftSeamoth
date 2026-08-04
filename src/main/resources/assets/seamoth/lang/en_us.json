@@ -2,5 +2,9 @@
   "entity.seamoth.seamoth": "Seamoth",
   "key.category.seamoth.main": "Seamoth Controls",
   "key.seamoth.up": "Ascend",
-  "key.seamoth.down": "Descend"
+  "key.seamoth.down": "Descend",
+  "key.seamoth.forward": "Moving forward",
+  "key.seamoth.backward": "Moving backward",
+  "key.seamoth.left": "Moving left",
+  "key.seamoth.right": "Moving right"
 }

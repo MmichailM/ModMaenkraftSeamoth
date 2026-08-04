@@ -10,7 +10,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 
-public record SeamothInputPacket(boolean up, boolean down) implements CustomPacketPayload {
+public record SeamothInputPacket(boolean up, boolean down, boolean forw, boolean back, boolean left, boolean right) implements CustomPacketPayload {
 
     // ID пакета нового типа
     public static final CustomPacketPayload.Type<SeamothInputPacket> TYPE =
@@ -20,6 +20,10 @@ public record SeamothInputPacket(boolean up, boolean down) implements CustomPack
     public static final StreamCodec<FriendlyByteBuf, SeamothInputPacket> CODEC = StreamCodec.composite(
             ByteBufCodecs.BOOL, SeamothInputPacket::up,
             ByteBufCodecs.BOOL, SeamothInputPacket::down,
+            ByteBufCodecs.BOOL, SeamothInputPacket::forw,
+            ByteBufCodecs.BOOL, SeamothInputPacket::back,
+            ByteBufCodecs.BOOL, SeamothInputPacket::left,
+            ByteBufCodecs.BOOL, SeamothInputPacket::right,
             SeamothInputPacket::new
     );
 
@@ -29,8 +33,8 @@ public record SeamothInputPacket(boolean up, boolean down) implements CustomPack
     }
 
     // Тот самый метод, который вы вызываете для отправки
-    public static void send(boolean up, boolean down) {
-        ClientPlayNetworking.send(new SeamothInputPacket(up, down));
+    public static void send(boolean up, boolean down, boolean forw, boolean back, boolean left, boolean right) {
+        ClientPlayNetworking.send(new SeamothInputPacket(up, down, forw, back, left, right));
     }
     public static void register() {
         // 1. Регистрируем тип пакета C2S (Client to Server) и его кодек
@@ -40,7 +44,7 @@ public record SeamothInputPacket(boolean up, boolean down) implements CustomPack
         ServerPlayNetworking.registerGlobalReceiver(TYPE, (payload, context) -> {
             context.server().execute(() -> {
                 if (context.player().getVehicle() instanceof SeamothEntity seamoth) {
-                    seamoth.setInputs(payload.up(), payload.down());
+                    seamoth.setInputs(payload.up(), payload.down(), payload.forw, payload.back, payload.left, payload.right);
                 }
             });
         });

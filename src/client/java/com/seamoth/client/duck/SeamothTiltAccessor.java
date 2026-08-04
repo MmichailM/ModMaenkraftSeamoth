@@ -8,4 +8,8 @@ public interface SeamothTiltAccessor {
     float seamoth$getPitch();
 
     void seamoth$setPitch(float value);
+
+    boolean seamoth$isShouldHide();
+
+    void seamoth$setShouldHide(boolean value);
 }

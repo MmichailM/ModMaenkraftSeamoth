@@ -30,6 +30,10 @@ public class SeamothClient implements ClientModInitializer {
 
 		KeyMappingHelper.registerKeyMapping(SeamothKeybindings.KEY_UP);
 		KeyMappingHelper.registerKeyMapping(SeamothKeybindings.KEY_DOWN);
+		KeyMappingHelper.registerKeyMapping(SeamothKeybindings.KEY_FORWARD);
+		KeyMappingHelper.registerKeyMapping(SeamothKeybindings.KEY_BACKWARD);
+		KeyMappingHelper.registerKeyMapping(SeamothKeybindings.KEY_LEFT);
+		KeyMappingHelper.registerKeyMapping(SeamothKeybindings.KEY_RIGHT);
 
 		ClientTickEvents.END_CLIENT_TICK.register(SeamothClientHandler::onClientTick);
 	}

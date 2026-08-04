@@ -21,4 +21,32 @@ public class SeamothKeybindings {
             GLFW.GLFW_KEY_C,
             SEAMOTH_CATEGORY
     );
+
+    public static final KeyMapping KEY_FORWARD = new KeyMapping(
+            "key.seamoth.forward",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_W,
+            SEAMOTH_CATEGORY
+    );
+
+    public static final KeyMapping KEY_BACKWARD = new KeyMapping(
+            "key.seamoth.backward",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_S,
+            SEAMOTH_CATEGORY
+    );
+
+    public static final KeyMapping KEY_LEFT = new KeyMapping(
+            "key.seamoth.left",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_A,
+            SEAMOTH_CATEGORY
+    );
+
+    public static final KeyMapping KEY_RIGHT = new KeyMapping(
+            "key.seamoth.right",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_D,
+            SEAMOTH_CATEGORY
+    );
 }

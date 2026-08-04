@@ -14,6 +14,9 @@ public abstract class LivingEntityRenderStateMixin implements SeamothTiltAccesso
     @Unique
     private float seamoth$pitch = 0.0F;
 
+    @Unique
+    private boolean seamoth$shouldHide = false;
+
     @Override
     public boolean seamoth$isShouldTilt() {
         return this.seamoth$shouldTilt;
@@ -32,5 +35,15 @@ public abstract class LivingEntityRenderStateMixin implements SeamothTiltAccesso
     @Override
     public void seamoth$setPitch(float value) {
         this.seamoth$pitch = value;
+    }
+
+    @Override
+    public boolean seamoth$isShouldHide() {
+        return this.seamoth$shouldHide;
+    }
+
+    @Override
+    public void seamoth$setShouldHide(boolean value) {
+        this.seamoth$shouldHide = value;
     }
 }

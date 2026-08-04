@@ -3,12 +3,18 @@ package com.seamoth.entity;
 import com.mojang.math.Axis;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
@@ -17,17 +23,25 @@ import org.jspecify.annotations.Nullable;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-public class SeamothEntity extends Entity {
+public class SeamothEntity extends LivingEntity {
 
     private static final float MIN_PITCH = -60.0F;
     private static final float MAX_PITCH = 60.0F;
 
     public boolean pressingUp = false;
     public boolean pressingDown = false;
+    public boolean pressingForward = false;
+    public boolean pressingBackward = false;
+    public boolean pressingLeft = false;
+    public boolean pressingRight = false;
 
-    public void setInputs(boolean up, boolean down) {
+    public void setInputs(boolean up, boolean down, boolean forward, boolean backward, boolean left, boolean right) {
         this.pressingDown = down;
         this.pressingUp = up;
+        this.pressingForward = forward;
+        this.pressingBackward = backward;
+        this.pressingLeft = left;
+        this.pressingRight = right;
     }
 
     private boolean wasInWater;
@@ -41,7 +55,7 @@ public class SeamothEntity extends Entity {
     private static final double PILOT_EYE_OFFSET_Z = 0.1D;  // насколько глаза смещены вперёд
 
     @Override
-    protected void positionRider(Entity passenger, MoveFunction moveFunction) {
+    protected void positionRider(Entity passenger, Entity.MoveFunction moveFunction) {
         if (this.hasPassenger(passenger)) {
             Vec3 rotatedEyeOffset = this.rotateOffsetLikeModel(
                     PILOT_EYE_OFFSET_X, PILOT_EYE_OFFSET_Y, PILOT_EYE_OFFSET_Z
@@ -65,6 +79,46 @@ public class SeamothEntity extends Entity {
         }
     }
 
+    @Override
+    public boolean canBeSeenAsEnemy() {
+        return !this.getPassengers().isEmpty();
+    }
+
+    @Override
+    public void handleEntityEvent(byte id) {
+        return;
+    }
+
+    @Override
+    protected void dropAllDeathLoot(ServerLevel level, DamageSource source) {
+        return;
+    }
+
+    @Override
+    public boolean canBeAffected(MobEffectInstance newEffect) {
+        return false;
+    }
+
+    @Override
+    public boolean canBreatheUnderwater() {
+        return true;
+    }
+
+    /**
+     * Обычный isInWater() у ванильной сущности становится true, стоит воде
+     * коснуться хотя бы нижней кромки хитбокса. У Мотылька хитбокс высокий,
+     * поэтому при всплытии он ещё долго "касается" воды снизу, хотя корпус уже
+     * торчит наружу — из-за этого управление (в т.ч. подъём по пробелу)
+     * продолжало работать над водой и позволяло случайно улететь.
+     * <p>
+     * Тут мы требуем, чтобы вода доставала примерно до уровня глаз пилота —
+     * то есть корпус должен быть реально погружён, а не просто задевать
+     * поверхность снизу.
+     */
+    private boolean isSeamothSubmerged() {
+        return this.isEyeInFluid(FluidTags.WATER);
+    }
+
     /**
      * Поворачивает локальное смещение (относительно корпуса) ровно так же,
      * как SeamothEntityRenderer поворачивает саму 3D-модель:
@@ -86,6 +140,41 @@ public class SeamothEntity extends Entity {
     }
 
     @Override
+    public float maxUpStep() {
+        return 0.0f;
+    }
+
+    @Override
+    public float getViewYRot(float partialTick) {
+        return Mth.lerp(partialTick, this.yRotO, this.getYRot());
+    }
+
+    @Override
+    protected boolean isLocalClientAuthoritative() {
+        return false;
+    }
+
+    @Override
+    public void travel(Vec3 travelVector) {
+        LivingEntity pilot = this.getFirstPassenger() instanceof  LivingEntity ? (LivingEntity) this.getFirstPassenger() : null;
+        boolean inWater = this.isSeamothSubmerged();
+
+        if (this.isAlive() && pilot != null) {
+            this.handleWaterEntryRotation(inWater, pilot);
+
+            this.handlePhysicsAndMovement(inWater, pilot);
+
+            if (!this.level().isClientSide()) {
+                this.hurtMarked = true;
+            }
+
+            return;
+        }
+
+        super.travel(travelVector);
+    }
+
+    @Override
     public void tick() {
         super.tick();
 
@@ -97,12 +186,22 @@ public class SeamothEntity extends Entity {
             }
         }
 
-        boolean inWater = this.isInWater();
-        LivingEntity pilot = this.getFirstPassenger() instanceof  LivingEntity ? (LivingEntity) this.getFirstPassenger() : null;
+        // Раньше travel() вызывался неявно самим движком через aiStep() —
+        // причём одинаково и на клиенте, и на сервере. Когда мы занулили
+        // aiStep() (чтобы убрать паразитное ванильное трение — см. комментарий
+        // ниже), вызывать travel() стало вообще некому: ни в SeamothEntity, ни
+        // где-либо ещё в моде явного вызова .travel(...) нет. Из-за этого
+        // СЕРВЕР переставал сдвигать реальную (авторитетную) позицию сущности —
+        // она замирала в точке посадки, — а на клиенте у пилота было ощущение
+        // движения только за счёт локального предсказания. Отсюда и телепорт
+        // назад в точку посадки при высадке: сервер всё это время считал, что
+        // мотылёк никуда не уезжал.
+        //
+        // Вызываем travel() явно, из одного места, одинаково на обеих сторонах —
+        // это восстанавливает нормальную клиент-серверную симметрию.
+        this.travel(Vec3.ZERO);
 
-        this.handleWaterEntryRotation(inWater, pilot);
-
-        this.handlePhysicsAndMovement(inWater, pilot);
+        boolean inWater = this.isSeamothSubmerged();
 
         this.wasInWater = inWater;
     }
@@ -113,6 +212,8 @@ public class SeamothEntity extends Entity {
             this.setXRot(Mth.clamp(pilot.getXRot(), MIN_PITCH, MAX_PITCH));
             this.yRotO = this.getYRot();
             this.xRotO = this.getXRot();
+            this.yBodyRot = this.getYRot();
+            this.yBodyRotO = this.getYRot();
         }
     }
 
@@ -134,6 +235,14 @@ public class SeamothEntity extends Entity {
             currentVelocity = this.calculateAirMovement(currentVelocity, AIR_FRICTION, GRAVITY);
         }
 
+        if (!inWater && !this.onGround() && currentVelocity.y > 0) {
+            // Скорость вверх, набранная ещё под водой (или на границе погружения),
+            // не должна по инерции выносить корпус в воздух — как только мы
+            // реально вышли из воды, вертикальный "разгон" сбрасываем, дальше
+            // просто падаем под гравитацией.
+            currentVelocity = new Vec3(currentVelocity.x, 0.0D, currentVelocity.z);
+        }
+
         if (!inWater && !this.onGround()) {
             currentVelocity = new Vec3(currentVelocity.x, currentVelocity.y - GRAVITY, currentVelocity.z);
         }
@@ -152,18 +261,20 @@ public class SeamothEntity extends Entity {
             pilot.setYBodyRot(this.getYRot());
             pilot.setYHeadRot(this.getYRot());
 
-            float forward = pilot.zza;
-            float strafe = pilot.xxa;
-
             Vec3 lookVec = pilot.getLookAngle();
             Vec3 inputVec = Vec3.ZERO;
 
-            if (forward != 0) inputVec = inputVec.add(lookVec.scale(forward));
-            if (strafe != 0) {
-                Vec3 sideVec = lookVec.cross(new Vec3(0, 1, 0)).normalize();
-                inputVec = inputVec.add(sideVec.scale(-strafe));
-            }
+            // Форвард/страйф теперь идут из собственного пакета ввода
+            // (this.pressingForward и т.д.), а не с pilot.zza/xxa.
+            if (this.pressingForward) inputVec = inputVec.add(lookVec);
+            if (this.pressingBackward) inputVec = inputVec.subtract(lookVec);
 
+            Vec3 sideVec = lookVec.cross(new Vec3(0, 1, 0)).normalize(); // указывает вправо от взгляда
+            if (this.pressingRight) inputVec = inputVec.add(sideVec);
+            if (this.pressingLeft) inputVec = inputVec.subtract(sideVec);
+
+            // Этот метод вызывается только пока this.isSeamothSubmerged() == true,
+            // так что отдельная проверка воды тут больше не нужна.
             double verticalMove = 0;
             if (this.pressingUp) verticalMove += 1.0D;
             if (this.pressingDown) verticalMove -= 1.0D;
@@ -173,13 +284,22 @@ public class SeamothEntity extends Entity {
             }
 
             if (inputVec.lengthSqr() > 0.01D) {
-                Vec3 accelVec = inputVec.normalize().scale(acc);
+                Vec3 desiredDir = inputVec.normalize();
 
-                if (currentVelocity.length() < 0.1D) {
-                    currentVelocity = inputVec.normalize().scale(acc * 2.0D);
-                } else {
-                    currentVelocity = currentVelocity.add(accelVec);
-                }
+                // Раскладываем текущую скорость на составляющую ВДОЛЬ желаемого
+                // направления и "паразитную" составляющую поперёк него. Раньше
+                // мы просто прибавляли ускорение к вектору скорости целиком —
+                // из-за этого после манёвра по вертикали остаточная скорость ещё
+                // долго "тянула" в старом направлении, а видимая скорость в новом
+                // направлении казалась заниженной (упиралась в maxSpeed вместе
+                // со старой составляющей). Теперь поперечная часть гасится
+                // трением отдельно и заметно быстрее.
+                double alongSpeed = currentVelocity.dot(desiredDir);
+                Vec3 alongVelocity = desiredDir.scale(alongSpeed);
+                Vec3 lateralVelocity = currentVelocity.subtract(alongVelocity).scale(friction);
+
+                double newAlongSpeed = Math.min(alongSpeed + acc, maxSpeed);
+                currentVelocity = desiredDir.scale(newAlongSpeed).add(lateralVelocity);
 
                 if (currentVelocity.length() > maxSpeed) {
                     currentVelocity = currentVelocity.normalize().scale(maxSpeed);
@@ -194,6 +314,7 @@ public class SeamothEntity extends Entity {
                 currentVelocity = Vec3.ZERO;
             }
         }
+
 
         return currentVelocity;
     }
@@ -224,7 +345,7 @@ public class SeamothEntity extends Entity {
             return;
         }
 
-        if (this.isInWater()) {
+        if (this.isSeamothSubmerged()) {
             // Entity.turn() уже применил движение мыши к livingPassenger.xRot/yRot.
             // Поскольку в конце прошлого вызова мы синхронизировали игрока с транспортом,
             // разница между текущим поворотом игрока и текущим поворотом транспорта
@@ -237,6 +358,8 @@ public class SeamothEntity extends Entity {
             this.setXRot(Mth.clamp(this.getXRot() + deltaPitch, MIN_PITCH, MAX_PITCH));
             this.yRotO = this.getYRot();
             this.xRotO = this.getXRot();
+            this.yBodyRot = this.getYRot();
+            this.yBodyRotO = this.getYRot();
 
             // Возвращаем игроку ровно поворот транспорта: камера и голова
             // остаются "смотрящими вперёд" и не крутятся отдельно от корпуса.
@@ -265,7 +388,7 @@ public class SeamothEntity extends Entity {
         }
     }
 
-    public SeamothEntity(EntityType<?> type, Level level) {
+    public SeamothEntity(EntityType<? extends LivingEntity> type, Level level) {
         super(type, level);
         this.blocksBuilding = true;
         this.noPhysics = false;
@@ -273,6 +396,16 @@ public class SeamothEntity extends Entity {
 
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder entityData) {
+        super.defineSynchedData(entityData);
+    }
+
+    // Пустой намеренно: ванильная LivingEntity.aiStep() гасит deltaMovement
+    // (умножает на 0.98 и обнуляет составляющие меньше 0.003 каждый тик),
+    // что убивало нашу собственную инерцию. Но именно aiStep() был тем местом,
+    // откуда движок неявно вызывал travel() — теперь мы делаем это сами,
+    // явно, из SeamothEntity.tick(), так что здесь ничего вызывать не нужно.
+    @Override
+    public void aiStep() {
 
     }
 
@@ -282,11 +415,21 @@ public class SeamothEntity extends Entity {
             return false;
         }
 
-        if (source.getEntity() instanceof Player player) {
-            this.discard();
-            return true;
+        Entity attacker = source.getEntity();
+        Entity directAttacker = source.getDirectEntity();
+
+        if ((attacker != null && this.hasPassenger(attacker)) || (directAttacker != null && this.hasPassenger(directAttacker))) {
+            return false;
         }
-        return true;
+
+        if (source.getEntity() instanceof Player player) {
+            if (player.isCreative()) {
+                this.discard();
+                return true;
+            }
+        }
+
+        return super.hurtServer(level, source, damage);
     }
 
     @Override
@@ -325,6 +468,11 @@ public class SeamothEntity extends Entity {
     }
 
     @Override
+    public HumanoidArm getMainArm() {
+        return HumanoidArm.RIGHT;
+    }
+
+    @Override
     protected boolean canRide(Entity vehicle) {
         return true;
     }
@@ -337,7 +485,7 @@ public class SeamothEntity extends Entity {
     @Override
     public InteractionResult interact(Player player, InteractionHand hand, Vec3 location) {
         if (!this.level().isClientSide()) {
-            if (this.getPassengers().isEmpty()) {
+            if (this.getPassengers().isEmpty() && !player.isShiftKeyDown()) {
                 if (this.isInWater()) {
                     player.setXRot(this.getXRot());
                     player.setYRot(this.getYRot());
@@ -355,5 +503,22 @@ public class SeamothEntity extends Entity {
             }
         }
         return InteractionResult.PASS;
+    }
+
+    @Override
+    public void setItemSlot(EquipmentSlot slot, ItemStack itemStack) {
+        return;
+    }
+
+    @Override
+    public ItemStack getItemBySlot(EquipmentSlot slot) {
+        return ItemStack.EMPTY;
+    }
+
+    public static AttributeSupplier.Builder createSeamothAttributes() {
+        return LivingEntity.createLivingAttributes()
+                .add(Attributes.MAX_HEALTH, 100.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.3D)
+                .add(Attributes.KNOCKBACK_RESISTANCE, 1.0D);
     }
 }

@@ -3,7 +3,8 @@
 	"package": "com.seamoth.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
-		"ExampleMixin"
+		"ExampleMixin",
+		"MobTargetMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
