@@ -6,6 +6,7 @@ import com.seamoth.event.SeamothInteractionHandler;
 import com.seamoth.item.ModItems;
 import com.seamoth.item.SeamothContainerItem;
 import com.seamoth.network.SeamothInputPacket;
+import com.seamoth.network.SeamothSyncPacket;
 import net.fabricmc.api.ModInitializer;
 
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
@@ -42,6 +43,7 @@ public class Seamoth implements ModInitializer {
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
 		SeamothInputPacket.register();
+		SeamothSyncPacket.register();
 		FabricDefaultAttributeRegistry.register(SEAMOTH, SeamothEntity.createSeamothAttributes().build());
 		SeamothAggroHandler.register();
 		ModItems.registerModItems();

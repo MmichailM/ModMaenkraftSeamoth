@@ -1,6 +1,8 @@
 package com.seamoth.entity;
 
 import com.mojang.math.Axis;
+import com.seamoth.network.SeamothSyncPacket;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.FluidTags;
@@ -13,15 +15,22 @@ import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
+
+import java.util.List;
 
 public class SeamothEntity extends LivingEntity {
 
@@ -155,11 +164,21 @@ public class SeamothEntity extends LivingEntity {
     }
 
     @Override
+    public boolean isColliding(BlockPos pos, BlockState state) {
+        return this.isAlive();
+    }
+
+    @Override
+    public boolean canBeCollidedWith(@Nullable Entity other) {
+        return this.isAlive();
+    }
+
+    @Override
     public void travel(Vec3 travelVector) {
         LivingEntity pilot = this.getFirstPassenger() instanceof  LivingEntity ? (LivingEntity) this.getFirstPassenger() : null;
         boolean inWater = this.isSeamothSubmerged();
 
-        if (this.isAlive() && pilot != null) {
+        if (this.isAlive()) {
             this.handleWaterEntryRotation(inWater, pilot);
 
             this.handlePhysicsAndMovement(inWater, pilot);
@@ -174,32 +193,50 @@ public class SeamothEntity extends LivingEntity {
         super.travel(travelVector);
     }
 
+    private void breakFallingBlocks() {
+        AABB checkBounds = this.getBoundingBox().expandTowards(0.0, 0.5, 0.0);
+
+        List<FallingBlockEntity> fallingBlocks = this.level().getEntitiesOfClass(FallingBlockEntity.class, checkBounds, entity -> entity.isAlive() && entity.getBoundingBox().intersects(checkBounds));
+
+        for (FallingBlockEntity fallingBlock : fallingBlocks) {
+            if (fallingBlock.getDeltaMovement().y < 0) {
+                BlockState state = fallingBlock.getBlockState();
+
+                if (this.level() instanceof ServerLevel serverLevel) {
+                    if (fallingBlock.dropItem && serverLevel.getGameRules().get(GameRules.BLOCK_DROPS)) {
+                        ItemStack itemStack = new ItemStack(state.getBlock());
+                        this.spawnAtLocation(serverLevel, itemStack);
+                    }
+                }
+
+                this.level().levelEvent(2001, fallingBlock.blockPosition(), Block.getId(state));
+
+                fallingBlock.discard();
+            }
+        }
+    }
+
     @Override
     public void tick() {
         super.tick();
 
         if (!this.level().isClientSide()) {
+            this.breakFallingBlocks();
+
             for (Entity passenger : this.getPassengers()) {
                 if (passenger instanceof LivingEntity livingPassenger) {
                     livingPassenger.setAirSupply(livingPassenger.getMaxAirSupply());
                 }
             }
-        }
 
-        // Раньше travel() вызывался неявно самим движком через aiStep() —
-        // причём одинаково и на клиенте, и на сервере. Когда мы занулили
-        // aiStep() (чтобы убрать паразитное ванильное трение — см. комментарий
-        // ниже), вызывать travel() стало вообще некому: ни в SeamothEntity, ни
-        // где-либо ещё в моде явного вызова .travel(...) нет. Из-за этого
-        // СЕРВЕР переставал сдвигать реальную (авторитетную) позицию сущности —
-        // она замирала в точке посадки, — а на клиенте у пилота было ощущение
-        // движения только за счёт локального предсказания. Отсюда и телепорт
-        // назад в точку посадки при высадке: сервер всё это время считал, что
-        // мотылёк никуда не уезжал.
-        //
-        // Вызываем travel() явно, из одного места, одинаково на обеих сторонах —
-        // это восстанавливает нормальную клиент-серверную симметрию.
-        this.travel(Vec3.ZERO);
+            this.travel(Vec3.ZERO);
+
+            if (this.level() instanceof ServerLevel) {
+                SeamothSyncPacket.broadcast(this);
+            }
+        } else if (this.getControllingPassenger() instanceof Player player && player.isLocalPlayer()) {
+            this.travel(Vec3.ZERO);
+        }
 
         boolean inWater = this.isSeamothSubmerged();
 
@@ -449,7 +486,9 @@ public class SeamothEntity extends LivingEntity {
 
     @Override
     public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
-        return new Vec3(this.getX(), this.getBoundingBox().maxY + 0.1, this.getZ());
+        Vec3 lookAngle = this.getLookAngle();
+        return new Vec3(this.getX() - lookAngle.x * 2.5, this.getY(), this.getZ() - lookAngle.z * 2.5);
+//        return new Vec3(this.getX(), this.getBoundingBox().maxY + 0.1, this.getZ());
     }
 
     @Override
@@ -464,7 +503,7 @@ public class SeamothEntity extends LivingEntity {
 
     @Override
     public boolean isPushable() {
-        return true;
+        return false;
     }
 
     @Override
