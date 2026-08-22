@@ -5,7 +5,9 @@ import com.seamoth.event.SeamothAggroHandler;
 import com.seamoth.event.SeamothInteractionHandler;
 import com.seamoth.item.ModItems;
 import com.seamoth.item.SeamothContainerItem;
+import com.seamoth.menu.ModMenus;
 import com.seamoth.network.SeamothInputPacket;
+import com.seamoth.network.SeamothOpenInventoryPacket;
 import com.seamoth.network.SeamothSyncPacket;
 import net.fabricmc.api.ModInitializer;
 
@@ -48,6 +50,8 @@ public class Seamoth implements ModInitializer {
 		SeamothAggroHandler.register();
 		ModItems.registerModItems();
 		SeamothInteractionHandler.register();
+		ModMenus.register();
+		SeamothOpenInventoryPacket.register();
 		LOGGER.info("Seamoth mod is initialised!");
 	}
 

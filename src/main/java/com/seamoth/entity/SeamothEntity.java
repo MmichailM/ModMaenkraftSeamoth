@@ -1,14 +1,19 @@
 package com.seamoth.entity;
 
 import com.mojang.math.Axis;
+import com.seamoth.menu.SeamothMenu;
 import com.seamoth.network.SeamothSyncPacket;
+import net.fabricmc.fabric.api.menu.v1.ExtendedMenuProvider;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.NonNullList;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
+import net.minecraft.world.*;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.*;
@@ -16,7 +21,9 @@ import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.FallingBlockEntity;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -31,8 +38,9 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentNavigableMap;
 
-public class SeamothEntity extends LivingEntity {
+public class SeamothEntity extends LivingEntity implements HasCustomInventoryScreen, ExtendedMenuProvider<Integer> {
 
     private static final float MIN_PITCH = -60.0F;
     private static final float MAX_PITCH = 60.0F;
@@ -100,7 +108,18 @@ public class SeamothEntity extends LivingEntity {
 
     @Override
     protected void dropAllDeathLoot(ServerLevel level, DamageSource source) {
-        return;
+        this.dropContainerContents(level, this.specialInventory);
+    }
+
+    private void dropContainerContents(ServerLevel serverLevel, Container container) {
+        for (int i = 0; i < container.getContainerSize(); i++) {
+            ItemStack itemStack = container.getItem(i);
+            if (!itemStack.isEmpty()) {
+                this.spawnAtLocation(serverLevel, itemStack);
+            }
+        }
+
+        container.clearContent();
     }
 
     @Override
@@ -138,15 +157,37 @@ public class SeamothEntity extends LivingEntity {
      * находится кабина, при любом наклоне — то есть камера буквально "приклеена"
      * к корпусу Мотылька.
      */
-    private Vec3 rotateOffsetLikeModel(double offsetX, double offsetY, double offsetZ) {
-        Quaternionf rotation = Axis.YP.rotationDegrees(-this.getYRot())
-                .mul(Axis.XP.rotationDegrees(this.getXRot()));
+    private Vec3 rotateOffsetLikeModel(float yRot, float xRot, double offsetX, double offsetY, double offsetZ) {
+        Quaternionf rotation = Axis.YP.rotationDegrees(-yRot)
+                .mul(Axis.XP.rotationDegrees(xRot));
 
         Vector3f local = new Vector3f((float) offsetX, (float) offsetY, (float) offsetZ);
         rotation.transform(local);
 
         return new Vec3(local.x, local.y, local.z);
     }
+
+    private Vec3 rotateOffsetLikeModel(double offsetX, double offsetY, double offsetZ) {
+        return this.rotateOffsetLikeModel(this.getYRot(), this.getXRot(), offsetX, offsetY, offsetZ);
+    }
+
+
+    public Vec3 getInterpolatedPilotEyePosition(float partialTick) {
+        float interpYRot = this.getViewYRot(partialTick);
+        float interpXRot = Mth.lerp(partialTick, this.xRotO, this.getXRot());
+
+        Vec3 rotatedEyeOffset = this.rotateOffsetLikeModel(
+                interpYRot, interpXRot,
+                PILOT_EYE_OFFSET_X, PILOT_EYE_OFFSET_Y, PILOT_EYE_OFFSET_Z
+        );
+
+        double bodyX = Mth.lerp(partialTick, this.xo, this.getX());
+        double bodyY = Mth.lerp(partialTick, this.yo, this.getY());
+        double bodyZ = Mth.lerp(partialTick, this.zo, this.getZ());
+
+        return new Vec3(bodyX + rotatedEyeOffset.x, bodyY + rotatedEyeOffset.y, bodyZ + rotatedEyeOffset.z);
+    }
+
 
     @Override
     public float maxUpStep() {
@@ -183,6 +224,8 @@ public class SeamothEntity extends LivingEntity {
 
             this.handlePhysicsAndMovement(inWater, pilot);
 
+            this.spawnEngineBubbles(inWater, pilot);
+
             if (!this.level().isClientSide()) {
                 this.hurtMarked = true;
             }
@@ -192,6 +235,53 @@ public class SeamothEntity extends LivingEntity {
 
         super.travel(travelVector);
     }
+
+    private static final double ENGINE_OFFSET_X = 0.0D;
+    private static final double ENGINE_OFFSET_Y = 0.15D;
+    private static final double ENGINE_OFFSET_Z = -1.1D;
+
+    private void spawnEngineBubbles(boolean inWater, LivingEntity pilot) {
+        if (!(this.level() instanceof ServerLevel serverLevel) || !inWater || pilot == null) {
+            return;
+        }
+
+        boolean thrusting = this.pressingForward || this.pressingBackward
+                || this.pressingLeft || this.pressingRight
+                || this.pressingUp || this.pressingDown;
+
+        if (!thrusting) {
+            return;
+        }
+
+        Vec3 enginePos = this.position().add(
+                this.rotateOffsetLikeModel(ENGINE_OFFSET_X, ENGINE_OFFSET_Y, ENGINE_OFFSET_Z)
+        );
+
+        // "Назад" относительно корпуса — пузырьки летят в сторону, противоположную
+        // носу, как будто их выталкивает струёй из сопла.
+        Vec3 backwards = this.rotateOffsetLikeModel(0.0D, 0.0D, -1.0D).normalize();
+
+        int count = 2 + this.random.nextInt(2);
+
+        for (int i = 0; i < count; i++) {
+            double spreadX = (this.random.nextDouble() - 0.5D) * 0.25D;
+            double spreadY = (this.random.nextDouble() - 0.5D) * 0.15D;
+            double spreadZ = (this.random.nextDouble() - 0.5D) * 0.25D;
+
+            double velX = backwards.x * 0.05D + spreadX * 0.4D;
+            double velY = 0.03D + Math.abs(spreadY) * 0.4D; // лёгкий подъём — пузырьки всплывают
+            double velZ = backwards.z * 0.05D + spreadZ * 0.4D;
+
+            serverLevel.sendParticles(
+                    ParticleTypes.BUBBLE,
+                    enginePos.x + spreadX, enginePos.y + spreadY, enginePos.z + spreadZ,
+                    0,
+                    velX, velY, velZ,
+                    1.0D
+            );
+        }
+    }
+
 
     private void breakFallingBlocks() {
         AABB checkBounds = this.getBoundingBox().expandTowards(0.0, 0.5, 0.0);
@@ -425,6 +515,34 @@ public class SeamothEntity extends LivingEntity {
         }
     }
 
+    private final SimpleContainer specialInventory = new SimpleContainer(SeamothMenu.SPECIAL_SLOT_COUNT);
+
+    public Container getSpecialInventory() {
+        return this.specialInventory;
+    }
+
+    @Override
+    public void openCustomInventoryScreen(Player player) {
+        if (!this.level().isClientSide() && player instanceof ServerPlayer serverPlayer) {
+            serverPlayer.openMenu(this);
+        }
+    }
+
+    @Override
+    public AbstractContainerMenu createMenu(int syncId, Inventory playerInventory, Player player) {
+        return new SeamothMenu(syncId, playerInventory, this);
+    }
+
+    @Override
+    public Integer getScreenOpeningData(ServerPlayer player) {
+        return this.getId();
+    }
+
+    @Override
+    public Component getDisplayName() {
+        return Component.translatable("entity.seamoth.seamoth");
+    }
+
     public SeamothEntity(EntityType<? extends LivingEntity> type, Level level) {
         super(type, level);
         this.blocksBuilding = true;
@@ -461,6 +579,7 @@ public class SeamothEntity extends LivingEntity {
 
         if (source.getEntity() instanceof Player player) {
             if (player.isCreative()) {
+                this.dropContainerContents(level, this.specialInventory);
                 this.discard();
                 return true;
             }
@@ -471,11 +590,32 @@ public class SeamothEntity extends LivingEntity {
 
     @Override
     protected void readAdditionalSaveData(ValueInput input) {
-
+        super.readAdditionalSaveData(input);
+        this.loadContainer(input, "SpecialInventory", this.specialInventory);
     }
 
     @Override
     protected void addAdditionalSaveData(ValueOutput output) {
+        super.addAdditionalSaveData(output);
+        this.saveContainer(output, "SpecialInventory", this.specialInventory);
+    }
+
+    private void saveContainer(ValueOutput output, String key, Container container) {
+        NonNullList<ItemStack> items = NonNullList.withSize(container.getContainerSize(), ItemStack.EMPTY);
+        for (int i = 0; i < container.getContainerSize(); i++) {
+            items.set(i, container.getItem(i));
+        }
+        ContainerHelper.saveAllItems(output.child(key), items);
+    }
+
+    private void loadContainer(ValueInput input, String key, Container container) {
+        input.child(key).ifPresent(child -> {
+            NonNullList<ItemStack> items = NonNullList.withSize(container.getContainerSize(), ItemStack.EMPTY);
+            ContainerHelper.loadAllItems(child, items);
+            for (int i = 0; i < items.size(); i++) {
+                container.setItem(i, items.get(i));
+            }
+        });
 
     }
 

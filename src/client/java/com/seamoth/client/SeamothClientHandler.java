@@ -2,6 +2,7 @@ package com.seamoth.client;
 
 import com.seamoth.entity.SeamothEntity;
 import com.seamoth.network.SeamothInputPacket;
+import com.seamoth.network.SeamothOpenInventoryPacket;
 import net.minecraft.client.Minecraft;
 
 public class SeamothClientHandler {
@@ -11,6 +12,14 @@ public class SeamothClientHandler {
     private static boolean lastBack = false;
     private static boolean lastLeft = false;
     private static boolean lastRight = false;
+
+    public static void onClientTickEarly(Minecraft client) {
+        if (client.player != null
+                && client.player.getVehicle() instanceof SeamothEntity
+                && client.options.keyInventory.consumeClick()) {
+            SeamothOpenInventoryPacket.send();
+        }
+    }
 
     public static void onClientTick(Minecraft client) {
         if (client.player == null || !(client.player.getVehicle() instanceof SeamothEntity seamoth)) {

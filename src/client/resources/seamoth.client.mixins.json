@@ -7,7 +7,9 @@
 		"ExampleClientMixin",
 		"PlayerRendererMixin",
 		"LivingEntityRenderStateMixin",
-		"LocalPlayerMixin"
+		"LocalPlayerMixin",
+		"CameraMixin",
+		"ItemInHandRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

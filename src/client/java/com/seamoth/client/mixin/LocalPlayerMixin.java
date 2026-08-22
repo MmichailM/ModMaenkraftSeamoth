@@ -1,6 +1,7 @@
 package com.seamoth.client.mixin;
 
 import com.seamoth.entity.SeamothEntity;
+import net.minecraft.client.Camera;
 import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
