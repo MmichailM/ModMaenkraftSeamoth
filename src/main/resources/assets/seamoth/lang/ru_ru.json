@@ -1,5 +1,7 @@
 {
   "entity.seamoth.seamoth": "Мотылёк",
+  "item.seamoth.storage_module": "Модуль хранилища",
+  "itemGroup.seamoth.modules": "Модули Мотылька",
   "key.category.seamoth.main": "Управление Мотыльком",
   "key.seamoth.up": "Всплытие",
   "key.seamoth.down": "Погружение",

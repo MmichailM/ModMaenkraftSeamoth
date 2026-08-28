@@ -1,6 +1,9 @@
 package com.seamoth.entity;
 
 import com.mojang.math.Axis;
+import com.seamoth.Seamoth;
+import com.seamoth.item.ModItemTags;
+import com.seamoth.item.StorageModuleItem;
 import com.seamoth.menu.SeamothMenu;
 import com.seamoth.network.SeamothSyncPacket;
 import net.fabricmc.fabric.api.menu.v1.ExtendedMenuProvider;
@@ -324,6 +327,7 @@ public class SeamothEntity extends LivingEntity implements HasCustomInventoryScr
             if (this.level() instanceof ServerLevel) {
                 SeamothSyncPacket.broadcast(this);
             }
+
         } else if (this.getControllingPassenger() instanceof Player player && player.isLocalPlayer()) {
             this.travel(Vec3.ZERO);
         }

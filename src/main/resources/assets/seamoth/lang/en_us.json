@@ -1,5 +1,7 @@
 {
   "entity.seamoth.seamoth": "Seamoth",
+  "item.seamoth.storage_module": "Storage module",
+  "itemGroup.seamoth.modules": "Seamoth modules",
   "key.category.seamoth.main": "Seamoth Controls",
   "key.seamoth.up": "Ascend",
   "key.seamoth.down": "Descend",

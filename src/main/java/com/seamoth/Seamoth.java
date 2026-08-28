@@ -3,6 +3,7 @@ package com.seamoth;
 import com.seamoth.entity.SeamothEntity;
 import com.seamoth.event.SeamothAggroHandler;
 import com.seamoth.event.SeamothInteractionHandler;
+import com.seamoth.item.ModCreativeTabs;
 import com.seamoth.item.ModItems;
 import com.seamoth.item.SeamothContainerItem;
 import com.seamoth.menu.ModMenus;
@@ -52,6 +53,7 @@ public class Seamoth implements ModInitializer {
 		SeamothInteractionHandler.register();
 		ModMenus.register();
 		SeamothOpenInventoryPacket.register();
+		ModCreativeTabs.register();
 		LOGGER.info("Seamoth mod is initialised!");
 	}
 

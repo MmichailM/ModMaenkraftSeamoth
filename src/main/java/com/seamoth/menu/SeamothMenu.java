@@ -1,6 +1,9 @@
 package com.seamoth.menu;
 
 import com.seamoth.entity.SeamothEntity;
+import com.seamoth.item.ModItemTags;
+import com.seamoth.item.ModItems;
+import com.seamoth.item.StorageModuleItem;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.Entity;
@@ -8,6 +11,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 public class SeamothMenu extends AbstractContainerMenu {
@@ -15,6 +19,8 @@ public class SeamothMenu extends AbstractContainerMenu {
 
     public static final int MODULE_SLOT_START = 1;
     public static final int MODULE_SLOT_COUNT = 4;
+
+    public static final int STORAGE_SLOT_START = MODULE_SLOT_START + MODULE_SLOT_COUNT;
 
     public static final int SPECIAL_SLOT_COUNT = MODULE_SLOT_START + MODULE_SLOT_COUNT + 27;
 
@@ -40,7 +46,7 @@ public class SeamothMenu extends AbstractContainerMenu {
         this.specialInventory.startOpen(playerInventory.player);
 
         this.addSpecialSlots();
-        this.addSeamothInventorySlots();
+        this.addStorageSlots();
         this.addPlayerInventorySlots(playerInventory);
     }
 
@@ -54,19 +60,47 @@ public class SeamothMenu extends AbstractContainerMenu {
         this.specialInventory = found != null ? found.getSpecialInventory() : new SimpleContainer(SPECIAL_SLOT_COUNT);
 
         this.addSpecialSlots();
-        this.addSeamothInventorySlots();
+        this.addStorageSlots();
         this.addPlayerInventorySlots(playerInventory);
     }
 
+    private static boolean isBatteryItem(ItemStack stack) {
+        return stack.is(ModItemTags.BATTERIES);
+    }
+
     private static boolean isModuleItem(ItemStack stack) {
-        return true;
+        return stack.is(ModItemTags.MODULES);
+    }
+
+    private static boolean isStorageModule(ItemStack stack) {
+        return stack.getItem() instanceof StorageModuleItem;
+    }
+
+    private boolean hasStorageModule() {
+        for (int i = MODULE_SLOT_START; i < MODULE_SLOT_START + MODULE_SLOT_COUNT; i++) {
+            if (isStorageModule(this.specialInventory.getItem(i))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean storageHasItems() {
+        for (int i = STORAGE_SLOT_START; i < SPECIAL_SLOT_COUNT; i++) {
+            if (!this.specialInventory.getItem(i).isEmpty()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void addSpecialSlots() {
         this.addSlot(new Slot(this.specialInventory, BATTERY_SLOT, BATTERY_SLOT_X, BATTERY_SLOT_Y) {
             @Override
             public boolean mayPlace(ItemStack stack) {
-                return true;
+                return isBatteryItem(stack);
             }
         });
 
@@ -79,11 +113,20 @@ public class SeamothMenu extends AbstractContainerMenu {
                 public boolean mayPlace(ItemStack stack) {
                     return isModuleItem(stack);
                 }
+
+                @Override
+                public boolean mayPickup(Player player) {
+                    if (isStorageModule(this.getItem()) && storageHasItems()) {
+                        return false;
+                    }
+
+                    return super.mayPickup(player);
+                }
             });
         }
     }
 
-    private void addSeamothInventorySlots() {
+    private void addStorageSlots() {
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 int slotIndex = (MODULE_SLOT_COUNT + 1) + col + (row * 9);
@@ -95,7 +138,17 @@ public class SeamothMenu extends AbstractContainerMenu {
                 ) {
                     @Override
                     public boolean mayPlace(ItemStack stack) {
-                        return isModuleItem(stack);
+                        return true;
+                    }
+
+                    @Override
+                    public boolean mayPickup(Player player) {
+                        return hasStorageModule() && super.mayPickup(player);
+                    }
+
+                    @Override
+                    public boolean isActive() {
+                        return hasStorageModule();
                     }
                 });
             }

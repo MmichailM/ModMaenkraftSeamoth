@@ -8,14 +8,27 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.Slot;
 
 public class SeamothScreen extends AbstractContainerScreen<SeamothMenu> {
-    private static final int PANEL_BORDER_COLOR = 0xFF373737;
-    private static final int PANEL_FILL_COLOR = 0xFFC6C6C6;
-    private static final int SLOT_BORDER_COLOR = 0xFF373737;
-    private static final int SLOT_WELL_COLOR = 0xFF8B8B8B;
+    private static final int PANEL_BORDER_COLOR = 0x80373737;
+    private static final int PANEL_FILL_COLOR = 0x802C6BB7/*0xFFC6C6C6*/;
+    private static final int SLOT_BORDER_COLOR = 0x80373737;
+    private static final int SLOT_WELL_COLOR = 0x802C6BB7/*0x808B8B8B*/;
+    private static final int TEXT_COLOR = 0xFFFFFFFF;
 
     public SeamothScreen(SeamothMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title, 176, 166 + 40);
         this.inventoryLabelY = this.imageHeight - 94;
+    }
+
+    @Override
+    protected void extractLabels(GuiGraphicsExtractor graphics, int xm, int ym) {
+        int x = this.titleLabelX;
+        int y = this.titleLabelY;
+
+        int piX = this.inventoryLabelX;
+        int piY = this.inventoryLabelY;
+
+        graphics.text(this.font, this.title, x, y, TEXT_COLOR);
+        graphics.text(this.font, this.playerInventoryTitle, piX, piY, TEXT_COLOR);
     }
 
     @Override
@@ -28,6 +41,10 @@ public class SeamothScreen extends AbstractContainerScreen<SeamothMenu> {
 
         // Рисуем серые квадраты под слоты
         for (Slot slot : this.menu.slots) {
+            if (!slot.isActive()) {
+                continue;
+            }
+
             int slotX = x + slot.x - 1;
             int slotY = y + slot.y - 1;
             graphics.fill(slotX, slotY, slotX + 18, slotY + 18, SLOT_BORDER_COLOR);
