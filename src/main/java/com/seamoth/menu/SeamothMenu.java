@@ -172,7 +172,7 @@ public class SeamothMenu extends AbstractContainerMenu {
                     playerInventory,
                     col,
                     8 + col * SLOT_SIZE,
-                    PLAYER_INV_Y_OFFSET + 3 * SLOT_SIZE
+                    8 + PLAYER_INV_Y_OFFSET + 3 * SLOT_SIZE
             ));
         }
     }

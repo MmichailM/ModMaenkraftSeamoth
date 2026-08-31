@@ -1,7 +1,10 @@
 {
   "entity.seamoth.seamoth": "Seamoth",
+  "item.seamoth.seamoth_container": "Seamoth container",
   "item.seamoth.storage_module": "Storage module",
+  "item.seamoth.repair_tool": "Repair tool",
   "itemGroup.seamoth.modules": "Seamoth modules",
+  "itemGroup.seamoth.tools": "Tools",
   "key.category.seamoth.main": "Seamoth Controls",
   "key.seamoth.up": "Ascend",
   "key.seamoth.down": "Descend",

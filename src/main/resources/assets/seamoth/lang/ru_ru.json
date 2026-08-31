@@ -1,7 +1,10 @@
 {
   "entity.seamoth.seamoth": "Мотылёк",
+  "item.seamoth.repair_tool": "Ремонтный инструмент",
+  "item.seamoth.seamoth_container": "Контейнер для мотылька",
   "item.seamoth.storage_module": "Модуль хранилища",
   "itemGroup.seamoth.modules": "Модули Мотылька",
+  "itemGroup.seamoth.tools": "Инструменты",
   "key.category.seamoth.main": "Управление Мотыльком",
   "key.seamoth.up": "Всплытие",
   "key.seamoth.down": "Погружение",

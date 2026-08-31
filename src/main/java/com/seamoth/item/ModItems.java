@@ -10,6 +10,8 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
 
 import static com.seamoth.Seamoth.MOD_ID;
+import static com.seamoth.item.RepairToolItem.DAMAGE_CHARGED;
+import static com.seamoth.item.RepairToolItem.DAMAGE_DISCHARGED;
 import static com.seamoth.item.SeamothContainerItem.DAMAGE_EMPTY;
 
 public class ModItems {
@@ -19,9 +21,13 @@ public class ModItems {
     public static final ResourceKey<Item> STORAGE_MODULE_KEY = ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(MOD_ID, "storage_module"));
     public static final Item STORAGE_MODULE = new StorageModuleItem(new Item.Properties().stacksTo(1).setId(STORAGE_MODULE_KEY));
 
+    public static final ResourceKey<Item> REPAIR_TOOL_KEY = ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(MOD_ID, "repair_tool"));
+    public static final Item REPAIR_TOOL = new RepairToolItem(new Item.Properties().durability(101).component(DataComponents.DAMAGE, DAMAGE_CHARGED).setId(REPAIR_TOOL_KEY));
+
     public static void registerModItems() {
         Registry.register(BuiltInRegistries.ITEM, SEAMOTH_CONTAINER_KEY, SEAMOTH_CONTAINTER);
         Registry.register(BuiltInRegistries.ITEM, STORAGE_MODULE_KEY, STORAGE_MODULE);
+        Registry.register(BuiltInRegistries.ITEM, REPAIR_TOOL_KEY, REPAIR_TOOL);
 
         Seamoth.LOGGER.info("Registered Mod Items");
     }

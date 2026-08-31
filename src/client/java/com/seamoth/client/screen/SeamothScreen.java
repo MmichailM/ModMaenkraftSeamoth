@@ -15,7 +15,7 @@ public class SeamothScreen extends AbstractContainerScreen<SeamothMenu> {
     private static final int TEXT_COLOR = 0xFFFFFFFF;
 
     public SeamothScreen(SeamothMenu menu, Inventory playerInventory, Component title) {
-        super(menu, playerInventory, title, 176, 166 + 40);
+        super(menu, playerInventory, title, 176, 166 + 40 + 8);
         this.inventoryLabelY = this.imageHeight - 94;
     }
 
@@ -25,7 +25,7 @@ public class SeamothScreen extends AbstractContainerScreen<SeamothMenu> {
         int y = this.titleLabelY;
 
         int piX = this.inventoryLabelX;
-        int piY = this.inventoryLabelY;
+        int piY = this.inventoryLabelY - 8;
 
         graphics.text(this.font, this.title, x, y, TEXT_COLOR);
         graphics.text(this.font, this.playerInventoryTitle, piX, piY, TEXT_COLOR);

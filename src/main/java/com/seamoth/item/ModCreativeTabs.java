@@ -2,6 +2,7 @@ package com.seamoth.item;
 
 import com.seamoth.Seamoth;
 import net.fabricmc.fabric.api.creativetab.v1.FabricCreativeModeTab;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -24,11 +25,23 @@ public class ModCreativeTabs {
             })
             .build();
 
+    public static final ResourceKey<CreativeModeTab> TOOLS_TAB_KEY =
+            ResourceKey.create(
+                    Registries.CREATIVE_MODE_TAB,
+                    Identifier.fromNamespaceAndPath(Seamoth.MOD_ID, "tools_tab")
+            );
+
+    public static final CreativeModeTab TOOLS_TAB = FabricCreativeModeTab.builder()
+            .title(Component.translatable("itemGroup.seamoth.tools"))
+            .icon(() -> ModItems.REPAIR_TOOL.getDefaultInstance())
+            .displayItems((parameters, output) -> {
+                output.accept(ModItems.REPAIR_TOOL);
+                output.accept(ModItems.SEAMOTH_CONTAINTER);
+            })
+            .build();
+
     public static void register() {
-        net.minecraft.core.Registry.register(
-                net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB,
-                MODULES_TAB_KEY,
-                MODULES_TAB
-        );
+        net.minecraft.core.Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, MODULES_TAB_KEY, MODULES_TAB);
+        net.minecraft.core.Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, TOOLS_TAB_KEY, TOOLS_TAB);
     }
 }

@@ -3,6 +3,7 @@ package com.seamoth.entity;
 import com.mojang.math.Axis;
 import com.seamoth.Seamoth;
 import com.seamoth.item.ModItemTags;
+import com.seamoth.item.RepairToolItem;
 import com.seamoth.item.StorageModuleItem;
 import com.seamoth.menu.SeamothMenu;
 import com.seamoth.network.SeamothSyncPacket;
@@ -668,7 +669,7 @@ public class SeamothEntity extends LivingEntity implements HasCustomInventoryScr
     @Override
     public InteractionResult interact(Player player, InteractionHand hand, Vec3 location) {
         if (!this.level().isClientSide()) {
-            if (this.getPassengers().isEmpty() && !player.isShiftKeyDown()) {
+            if (this.getPassengers().isEmpty() && !player.isShiftKeyDown() && !(player.getItemInHand(hand).getItem() instanceof RepairToolItem)) {
                 if (this.isInWater()) {
                     player.setXRot(this.getXRot());
                     player.setYRot(this.getYRot());
