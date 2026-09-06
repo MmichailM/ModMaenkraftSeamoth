@@ -4,6 +4,7 @@ import com.mojang.math.Axis;
 import com.seamoth.Seamoth;
 import com.seamoth.item.ModItemTags;
 import com.seamoth.item.RepairToolItem;
+import com.seamoth.item.SeamothContainerItem;
 import com.seamoth.item.StorageModuleItem;
 import com.seamoth.menu.SeamothMenu;
 import com.seamoth.network.SeamothSyncPacket;
@@ -19,6 +20,7 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.*;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.Attribute;
@@ -28,6 +30,7 @@ import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -148,7 +151,7 @@ public class SeamothEntity extends LivingEntity implements HasCustomInventoryScr
      * поверхность снизу.
      */
     private boolean isSeamothSubmerged() {
-        return this.isEyeInFluid(FluidTags.WATER);
+        return this.isEyeInFluid(FluidTags.WATER) || this.isEyeInFluid(FluidTags.LAVA);
     }
 
     /**
@@ -313,6 +316,10 @@ public class SeamothEntity extends LivingEntity implements HasCustomInventoryScr
     @Override
     public void tick() {
         super.tick();
+
+        if (this.isInLava()) {
+            this.lavaHurt();
+        }
 
         if (!this.level().isClientSide()) {
             this.breakFallingBlocks();
@@ -667,9 +674,16 @@ public class SeamothEntity extends LivingEntity implements HasCustomInventoryScr
     }
 
     @Override
+    public boolean fireImmune() {
+        return false;
+    }
+
+    @Override
     public InteractionResult interact(Player player, InteractionHand hand, Vec3 location) {
+        Item item = player.getItemInHand(hand).getItem();
+
         if (!this.level().isClientSide()) {
-            if (this.getPassengers().isEmpty() && !player.isShiftKeyDown() && !(player.getItemInHand(hand).getItem() instanceof RepairToolItem)) {
+            if (this.getPassengers().isEmpty() && !player.isShiftKeyDown() && !(item instanceof RepairToolItem) && !(item instanceof SeamothContainerItem)) {
                 if (this.isInWater()) {
                     player.setXRot(this.getXRot());
                     player.setYRot(this.getYRot());

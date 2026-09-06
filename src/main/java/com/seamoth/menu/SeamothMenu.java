@@ -184,31 +184,48 @@ public class SeamothMenu extends AbstractContainerMenu {
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        ItemStack result = ItemStack.EMPTY;
         Slot slot = this.slots.get(index);
-
-        if (slot != null && slot.hasItem()) {
-            ItemStack slotStack = slot.getItem();
-            result = slotStack.copy();
-
-            if (index < SPECIAL_SLOT_COUNT) {
-                if (!this.moveItemStackTo(slotStack, SPECIAL_SLOT_COUNT, this.slots.size(), true)) {
-                    return ItemStack.EMPTY;
-                }
-            } else {
-                if (!this.moveItemStackTo(slotStack, 0, this.slots.size(), false) && !this.moveItemStackTo(slotStack, SPECIAL_SLOT_COUNT, this.slots.size(), false)) {
-                    return ItemStack.EMPTY;
-                }
-            }
-
-            if (slotStack.isEmpty()) {
-                slot.setByPlayer(ItemStack.EMPTY);
-            } else {
-                slot.setChanged();
-            }
+        if (slot == null || !slot.hasItem()) {
+            return ItemStack.EMPTY;
         }
 
-        return result;
+        ItemStack slotStack = slot.getItem();
+
+        if (!hasStorageModule() && !(slotStack.getItem() instanceof StorageModuleItem)) {
+            return ItemStack.EMPTY;
+        }
+
+        ItemStack original = slotStack.copy();
+        int mainEnd = SPECIAL_SLOT_COUNT;
+        boolean moved;
+
+        if (index < SPECIAL_SLOT_COUNT) {
+            // из спецслотов — в трюм, затем в инвентарь игрока
+            moved = this.moveItemStackTo(slotStack, mainEnd, this.slots.size(), false)
+                    || this.moveItemStackTo(slotStack, SPECIAL_SLOT_COUNT, mainEnd, false);
+        } else if (index < mainEnd) {
+            // из трюма — в инвентарь игрока, либо в спецслот, если это модуль
+            moved = this.moveItemStackTo(slotStack, mainEnd, this.slots.size(), false)
+                    || this.moveItemStackTo(slotStack, 0, SPECIAL_SLOT_COUNT, false);
+        } else {
+            // из инвентаря игрока — в спецслот (если модуль), иначе в трюм
+            moved = this.moveItemStackTo(slotStack, 0, SPECIAL_SLOT_COUNT, false)
+                    || this.moveItemStackTo(slotStack, SPECIAL_SLOT_COUNT, mainEnd, false);
+        }
+
+        if (!moved || slotStack.getCount() == original.getCount()) {
+            return ItemStack.EMPTY;
+        }
+
+        if (slotStack.isEmpty()) {
+            slot.setByPlayer(ItemStack.EMPTY);
+        } else {
+            slot.setChanged();
+        }
+
+        slot.onTake(player, slotStack);
+
+        return original;
     }
 
     @Override

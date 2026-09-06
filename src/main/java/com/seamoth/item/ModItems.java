@@ -24,10 +24,14 @@ public class ModItems {
     public static final ResourceKey<Item> REPAIR_TOOL_KEY = ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(MOD_ID, "repair_tool"));
     public static final Item REPAIR_TOOL = new RepairToolItem(new Item.Properties().durability(101).component(DataComponents.DAMAGE, DAMAGE_CHARGED).setId(REPAIR_TOOL_KEY));
 
+    public static final ResourceKey<Item> SEAMOTH_ITEM_KEY = ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(MOD_ID, "seamoth_item"));
+    public static final Item SEAMOTH_ITEM = new SeamothItem(new Item.Properties().stacksTo(1).setId(SEAMOTH_ITEM_KEY));
+
     public static void registerModItems() {
         Registry.register(BuiltInRegistries.ITEM, SEAMOTH_CONTAINER_KEY, SEAMOTH_CONTAINTER);
         Registry.register(BuiltInRegistries.ITEM, STORAGE_MODULE_KEY, STORAGE_MODULE);
         Registry.register(BuiltInRegistries.ITEM, REPAIR_TOOL_KEY, REPAIR_TOOL);
+        Registry.register(BuiltInRegistries.ITEM, SEAMOTH_ITEM_KEY, SEAMOTH_ITEM);
 
         Seamoth.LOGGER.info("Registered Mod Items");
     }
