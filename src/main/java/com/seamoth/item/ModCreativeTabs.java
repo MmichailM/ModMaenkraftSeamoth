@@ -36,12 +36,28 @@ public class ModCreativeTabs {
             .icon(() -> ModItems.REPAIR_TOOL.getDefaultInstance())
             .displayItems((parameters, output) -> {
                 output.accept(ModItems.REPAIR_TOOL);
-                output.accept(ModItems.SEAMOTH_CONTAINTER);
+                output.accept(ModItems.SEAMOTH_CONTAINER);
+            })
+            .build();
+
+    public static final ResourceKey<CreativeModeTab> ENERGY_TAB_KEY =
+            ResourceKey.create(
+                    Registries.CREATIVE_MODE_TAB,
+                    Identifier.fromNamespaceAndPath(Seamoth.MOD_ID, "energy_tab")
+            );
+
+    public static final CreativeModeTab ENERGY_TAB = FabricCreativeModeTab.builder()
+            .title(Component.translatable("itemGroup.seamoth.energy"))
+            .icon(() -> ModItems.BATTERY.getDefaultInstance())
+            .displayItems((parameters, output) -> {
+                output.accept(ModItems.BATTERY);
+                output.accept(ModItems.POWERCELL);
             })
             .build();
 
     public static void register() {
         net.minecraft.core.Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, MODULES_TAB_KEY, MODULES_TAB);
         net.minecraft.core.Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, TOOLS_TAB_KEY, TOOLS_TAB);
+        net.minecraft.core.Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, ENERGY_TAB_KEY, ENERGY_TAB);
     }
 }

@@ -2,7 +2,6 @@ package com.seamoth.menu;
 
 import com.seamoth.entity.SeamothEntity;
 import com.seamoth.item.ModItemTags;
-import com.seamoth.item.ModItems;
 import com.seamoth.item.StorageModuleItem;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
@@ -11,7 +10,6 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 public class SeamothMenu extends AbstractContainerMenu {
@@ -64,8 +62,8 @@ public class SeamothMenu extends AbstractContainerMenu {
         this.addPlayerInventorySlots(playerInventory);
     }
 
-    private static boolean isBatteryItem(ItemStack stack) {
-        return stack.is(ModItemTags.BATTERIES);
+    private static boolean isPowerCellItem(ItemStack stack) {
+        return stack.is(ModItemTags.POWERCELLS);
     }
 
     private static boolean isModuleItem(ItemStack stack) {
@@ -100,7 +98,7 @@ public class SeamothMenu extends AbstractContainerMenu {
         this.addSlot(new Slot(this.specialInventory, BATTERY_SLOT, BATTERY_SLOT_X, BATTERY_SLOT_Y) {
             @Override
             public boolean mayPlace(ItemStack stack) {
-                return isBatteryItem(stack);
+                return isPowerCellItem(stack);
             }
         });
 
