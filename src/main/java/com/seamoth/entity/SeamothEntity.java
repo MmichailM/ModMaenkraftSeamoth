@@ -1,11 +1,9 @@
 package com.seamoth.entity;
 
 import com.mojang.math.Axis;
-import com.seamoth.Seamoth;
 import com.seamoth.item.ModItemTags;
 import com.seamoth.item.RepairToolItem;
 import com.seamoth.item.SeamothContainerItem;
-import com.seamoth.item.StorageModuleItem;
 import com.seamoth.menu.SeamothMenu;
 import com.seamoth.network.SeamothSyncPacket;
 import net.fabricmc.fabric.api.menu.v1.ExtendedMenuProvider;
@@ -13,6 +11,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,10 +20,8 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.*;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.*;
-import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.FallingBlockEntity;
@@ -48,6 +46,12 @@ import java.util.List;
 import java.util.concurrent.ConcurrentNavigableMap;
 
 public class SeamothEntity extends LivingEntity implements HasCustomInventoryScreen, ExtendedMenuProvider<Integer> {
+
+    // Есть ли энергоячейка в своём слоте. Считается на сервере, синхронизируется
+    // клиенту — клиентская копия инвентаря пуста, а локальное предсказание
+    // движения должно знать, есть ли питание.
+    private static final EntityDataAccessor<Boolean> DATA_POWERED =
+            SynchedEntityData.defineId(SeamothEntity.class, EntityDataSerializers.BOOLEAN);
 
     private static final float MIN_PITCH = -60.0F;
     private static final float MAX_PITCH = 60.0F;
@@ -252,9 +256,9 @@ public class SeamothEntity extends LivingEntity implements HasCustomInventoryScr
             return;
         }
 
-        boolean thrusting = this.pressingForward || this.pressingBackward
+        boolean thrusting = this.hasPower() && (this.pressingForward || this.pressingBackward
                 || this.pressingLeft || this.pressingRight
-                || this.pressingUp || this.pressingDown;
+                || this.pressingUp || this.pressingDown);
 
         if (!thrusting) {
             return;
@@ -324,9 +328,15 @@ public class SeamothEntity extends LivingEntity implements HasCustomInventoryScr
         if (!this.level().isClientSide()) {
             this.breakFallingBlocks();
 
-            for (Entity passenger : this.getPassengers()) {
-                if (passenger instanceof LivingEntity livingPassenger) {
-                    livingPassenger.setAirSupply(livingPassenger.getMaxAirSupply());
+            boolean powered = this.hasPowerCellInSlot();
+            this.entityData.set(DATA_POWERED, powered);
+
+            // Без энергоячейки кислород не подаётся — воздух у пилота тратится как обычно.
+            if (powered) {
+                for (Entity passenger : this.getPassengers()) {
+                    if (passenger instanceof LivingEntity livingPassenger) {
+                        livingPassenger.setAirSupply(livingPassenger.getMaxAirSupply());
+                    }
                 }
             }
 
@@ -346,7 +356,7 @@ public class SeamothEntity extends LivingEntity implements HasCustomInventoryScr
     }
 
     private void handleWaterEntryRotation(boolean inWater, LivingEntity pilot) {
-        if (inWater && !this.wasInWater && pilot != null) {
+        if (inWater && !this.wasInWater && pilot != null && this.hasPower()) {
             this.setYRot(pilot.getYRot());
             this.setXRot(Mth.clamp(pilot.getXRot(), MIN_PITCH, MAX_PITCH));
             this.yRotO = this.getYRot();
@@ -391,6 +401,11 @@ public class SeamothEntity extends LivingEntity implements HasCustomInventoryScr
     }
 
     private Vec3 calculateWaterMovement(LivingEntity pilot, Vec3 currentVelocity, double acc, double maxSpeed, double friction) {
+        // Без энергоячейки любое движение запрещено: ни тяги, ни поворота корпуса, ни дрейфа по инерции.
+        if (!this.hasPower()) {
+            return Vec3.ZERO;
+        }
+
         if (pilot != null) {
             this.setYRot(pilot.getYRot());
             this.setXRot(Mth.clamp(pilot.getXRot(), MIN_PITCH, MAX_PITCH));
@@ -485,20 +500,25 @@ public class SeamothEntity extends LivingEntity implements HasCustomInventoryScr
         }
 
         if (this.isSeamothSubmerged()) {
-            // Entity.turn() уже применил движение мыши к livingPassenger.xRot/yRot.
-            // Поскольку в конце прошлого вызова мы синхронизировали игрока с транспортом,
-            // разница между текущим поворотом игрока и текущим поворотом транспорта
-            // и есть "дельта" от движения мыши за этот кадр.
-            float deltaYaw = Mth.wrapDegrees(livingPassenger.getYRot() - this.getYRot());
-            float deltaPitch = livingPassenger.getXRot() - this.getXRot();
+            // Без энергоячейки корпус не вращается, а взгляд пилота жёстко привязан к нему
+            // (ниже камера возвращается в поворот корпуса). Иначе при возврате ячейки
+            // Мотылёк довернулся бы на тот угол, куда пилот успел посмотреть.
+            if (this.hasPower()) {
+                // Entity.turn() уже применил движение мыши к livingPassenger.xRot/yRot.
+                // Поскольку в конце прошлого вызова мы синхронизировали игрока с транспортом,
+                // разница между текущим поворотом игрока и текущим поворотом транспорта
+                // и есть "дельта" от движения мыши за этот кадр.
+                float deltaYaw = Mth.wrapDegrees(livingPassenger.getYRot() - this.getYRot());
+                float deltaPitch = livingPassenger.getXRot() - this.getXRot();
 
-            // Этой дельтой поворачиваем сам транспорт.
-            this.setYRot(this.getYRot() + deltaYaw);
-            this.setXRot(Mth.clamp(this.getXRot() + deltaPitch, MIN_PITCH, MAX_PITCH));
-            this.yRotO = this.getYRot();
-            this.xRotO = this.getXRot();
-            this.yBodyRot = this.getYRot();
-            this.yBodyRotO = this.getYRot();
+                // Этой дельтой поворачиваем сам транспорт.
+                this.setYRot(this.getYRot() + deltaYaw);
+                this.setXRot(Mth.clamp(this.getXRot() + deltaPitch, MIN_PITCH, MAX_PITCH));
+                this.yRotO = this.getYRot();
+                this.xRotO = this.getXRot();
+                this.yBodyRot = this.getYRot();
+                this.yBodyRotO = this.getYRot();
+            }
 
             // Возвращаем игроку ровно поворот транспорта: камера и голова
             // остаются "смотрящими вперёд" и не крутятся отдельно от корпуса.
@@ -564,6 +584,18 @@ public class SeamothEntity extends LivingEntity implements HasCustomInventoryScr
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder entityData) {
         super.defineSynchedData(entityData);
+        entityData.define(DATA_POWERED, false);
+    }
+
+    /** Серверная проверка: лежит ли в слоте энергоячейки энергоячейка. */
+    private boolean hasPowerCellInSlot() {
+        ItemStack stack = this.specialInventory.getItem(SeamothMenu.BATTERY_SLOT);
+        return !stack.isEmpty() && stack.is(ModItemTags.POWERCELLS);
+    }
+
+    /** Есть ли питание (работает и на сервере, и на клиенте). */
+    public boolean hasPower() {
+        return this.entityData.get(DATA_POWERED);
     }
 
     // Пустой намеренно: ванильная LivingEntity.aiStep() гасит deltaMovement

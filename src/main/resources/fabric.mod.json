@@ -3,9 +3,9 @@
 	"id": "seamoth",
 	"version": "${version}",
 	"name": "Seamoth",
-	"description": "Кто читает тот гей",
+	"description": "Мод на Мотылёк",
 	"authors": [
-		"Hitler & Epstein"
+		"Geometrator"
 	],
 	"contact": {
 		"homepage": "https://max.ru",

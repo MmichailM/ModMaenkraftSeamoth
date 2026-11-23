@@ -1,10 +1,14 @@
 package com.seamoth.item;
 
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
-public class PowerCellItem extends Item {
-    public PowerCellItem(Properties properties) {
-        super(properties.durability(200).component(DataComponents.DAMAGE, 1));
+public abstract class PowerCellItem extends EnergyItem {
+    protected PowerCellItem(Properties properties, int maxEnergy) {
+        super(properties, maxEnergy);
+    }
+
+    @Override
+    public int getBarColor(ItemStack itemStack) {
+        return 0x55FFFF;
     }
 }

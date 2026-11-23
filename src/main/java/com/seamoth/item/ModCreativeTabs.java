@@ -48,10 +48,10 @@ public class ModCreativeTabs {
 
     public static final CreativeModeTab ENERGY_TAB = FabricCreativeModeTab.builder()
             .title(Component.translatable("itemGroup.seamoth.energy"))
-            .icon(() -> ModItems.BATTERY.getDefaultInstance())
+            .icon(() -> ModItems.COPPER_BATTERY.getDefaultInstance())
             .displayItems((parameters, output) -> {
-                output.accept(ModItems.BATTERY);
-                output.accept(ModItems.POWERCELL);
+                output.accept(ModItems.COPPER_BATTERY);
+                output.accept(ModItems.COPPER_POWERCELL);
             })
             .build();
 

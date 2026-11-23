@@ -1,12 +1,14 @@
 package com.seamoth.item;
 
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
-import static com.seamoth.item.SeamothContainerItem.DAMAGE_LOADED;
+public abstract class BatteryItem extends EnergyItem {
+    protected BatteryItem(Properties properties, int maxEnergy) {
+        super(properties, maxEnergy);
+    }
 
-public class BatteryItem extends Item {
-    public BatteryItem(Properties properties) {
-        super(properties.durability(100).component(DataComponents.DAMAGE, DAMAGE_LOADED));
+    @Override
+    public int getBarColor(ItemStack itemStack) {
+        return 0xFFAA00;
     }
 }
