@@ -4,7 +4,6 @@
 	"refmap": "seamoth.refmap.json",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"ExampleClientMixin",
 		"PlayerRendererMixin",
 		"LivingEntityRenderStateMixin",
 		"LocalPlayerMixin",
